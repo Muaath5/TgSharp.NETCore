@@ -1,0 +1,69 @@
+name: CI
+on: [push, pull_request]
+
+env:
+  NUGET_URL: https://dist.nuget.org/win-x86-commandline/v5.4.0/nuget.exe
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Download latest NuGet 
+      run: wget $NUGET_URL
+
+    - name: Install Dependencies
+      run: mono nuget.exe restore src/TgSharp.sln
+
+    - name: Build Project
+      run: xbuild src/TgSharp.sln
+
+  macos:
+    runs-on: macos-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Download latest NuGet
+      run:  curl -o nuget.exe $NUGET_URL
+
+    - name: Install Dependencies
+      run: mono nuget.exe restore src/TgSharp.sln
+
+    - name: Build Project
+      run: msbuild src/TgSharp.sln
+
+  windows:
+    runs-on: windows-latest
+    steps:
+    - uses: actions/checkout@v2
+
+    - name: Download Nuget.exe
+      run: Invoke-WebRequest -OutFile Nuget.exe $Env:NUGET_URL
+
+    - name: Install Dependencies
+      run: ./Nuget.exe restore src/TgSharp.sln
+
+    - name: setup-msbuild
+      uses: microsoft/setup-msbuild@v1
+
+    - name: Build Project
+      run: MSBuild src/TgSharp.sln && MSBuild -t:Clean src/TgSharp.sln
+
+    - name: Prepare test suite assets
+      run: |
+        echo "$APP_CONFIG_IN_TESTS" > app.config
+        echo "$SESSION_DAT_IN_TESTS" > encodedSession.dat
+      shell: bash
+      env:
+        APP_CONFIG_IN_TESTS: ${{secrets.APP_CONFIG_IN_TESTS}}
+        SESSION_DAT_IN_TESTS: ${{secrets.SESSION_DAT_IN_TESTS}}
+
+    - name: Run Tests
+      run: |
+        MSBuild -p:Configuration=Debug -p:CI=true src/TgSharp.sln
+
+        certutil -decode encodedSession.dat src/TgSharp.Tests.NUnit/bin/Debug/session.dat
+        cp app.config src/TgSharp.Tests.NUnit/bin/Debug/TgSharp.Tests.NUnit.dll.config
+
+        ./Nuget.exe install NUnit.Runners -Version 3.11.1 -OutputDirectory packages
+        ./packages/NUnit.ConsoleRunner.3.11.1/tools/nunit3-console.exe src/TgSharp.Tests.NUnit/bin/Debug/TgSharp.Tests.NUnit.dll
