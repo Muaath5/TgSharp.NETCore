@@ -1,0 +1,63 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+using TgSharp.TL;
+
+namespace TgSharp.TL.Updates
+{
+    [TLObject(630429265)]
+    public class TLRequestGetDifference : TLMethod
+    {
+        public override int Constructor
+        {
+            get
+            {
+                return 630429265;
+            }
+        }
+
+        public int Flags { get; set; }
+		public int Pts { get; set; }
+		public int PtsTotalLimit { get; set; }
+		public int Date { get; set; }
+		public int Qts { get; set; }
+		public Updates.TLAbsDifference Response { get; set; }
+
+        public void ComputeFlags()
+        {
+            // do nothing
+        }
+
+        public override void DeserializeBody(BinaryReader br)
+        {
+            br.ReadInt32();
+			Pts = br.ReadInt32();
+			if ((Flags & 2) != 0)
+				PtsTotalLimit = br.ReadInt32();
+			Date = br.ReadInt32();
+			Qts = br.ReadInt32();
+			
+        }
+
+        public override void SerializeBody(BinaryWriter bw)
+        {
+            bw.Write(Constructor);
+            
+			bw.Write(Pts);
+			if ((Flags & 2) != 0)
+	bw.Write(PtsTotalLimit);
+			bw.Write(Date);
+			bw.Write(Qts);
+			
+        }
+
+        public override void DeserializeResponse(BinaryReader br)
+        {
+            Response = (Updates.TLAbsDifference)ObjectUtils.DeserializeObject(br);
+        }
+    }
+}
